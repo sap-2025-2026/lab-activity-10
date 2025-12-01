@@ -1,0 +1,187 @@
+asyncapi: 3.0.0
+info:
+  title: TTT Game Service event channels
+  version: '1.0.0'
+  description: |
+    Event-based API used by the TTT Game Service
+channels:
+  createGameRequests:
+    address: create-game-requests
+    description: Events about requests to create new games 
+    messages:
+      createGameRequest:
+        $ref: '#/components/messages/createGameRequest'
+  createGameRequestsApproved:
+    address: create-game-requests-approved
+    description: Events about creating new games request approved
+    messages:
+      createGameRequestApproved:
+        $ref: '#/components/messages/createGameRequestApproved'
+  createGameRequestsRejected:
+    address: create-game-requests-rejected
+    description: Events about creating new games request rejected
+    messages:
+      createGameRequestRejected:
+        $ref: '#/components/messages/createGameRequestRejected'
+  newGameCreated:
+    address: new-game-created
+    description: Events about new game created
+    messages:
+      newGame:
+        $ref: '#/components/messages/newGame'
+  game-{gameId}-JoinRequests:
+    address: game-{gameId}-join-requests
+    description: Events about requests to join a game
+    parameters:
+      gameId:
+        description: Unique identifier of the game.
+    messages:
+      joinGameRequest:
+        $ref: '#/components/messages/joinGameRequest'
+  game-{gameId}-JoinRequestsApproved:
+    address: game-{gameId}-join-requests-approved
+    description: Events about join a game requests accepted
+    parameters:
+      gameId:
+        description: Unique identifier of the game.
+    messages:
+      joinGameRequestApproved:
+        $ref: '#/components/messages/joinGameRequestApproved'
+  game-{gameId}-JoinRequestsRejected:
+    address: game-{gameId}-join-requests-rejected
+    description: Events about join a game requests rejected
+    parameters:
+      gameId:
+        description: Unique identifier of the game.
+    messages:
+      joinGameRequestRejected:
+        $ref: '#/components/messages/joinGameRequestRejected'
+  session-{playerSessionId}-MoveRequests:
+    address: session-{playerSessionId}-move-requests
+    description: Events about new moves proposed by a player in a game
+    parameters:
+      playerSessionId:
+        description: Unique identifier of the player session
+    messages:
+      newMoveRequest:
+        $ref: '#/components/messages/newMoveRequest'
+  session-{playerSessionId}-MoveRequestsApproved:
+    address: session-{playerSessionId}-move-requests-approved
+    description: Events about move requests accepted
+    parameters:
+      playerSessionId:
+        description: Unique identifier of the player session
+    messages:
+      newMoveRequestApproved:
+        $ref: '#/components/messages/newMoveRequestApproved'
+  session-{playerSessionId}-MoveRequestsRejected:
+    address: session-{playerSessionId}-move-requests-rejected
+    description: Events about move requests rejected
+    parameters:
+      playerSessionId:
+        description: Unique identifier of the player session
+    messages:
+      newMoveRequestRejected:
+        $ref: '#/components/messages/newMoveRequestRejected'
+  game-{gameId}-events:
+    address: game-{gameId}-events
+    description: Events about a specific game
+    parameters:
+      gameId:
+        description: Unique identifier of the game.
+    messages:
+      gameEvent:
+        $ref: '#/components/messages/gameEvent'
+operations:
+  receiveCreateGameRequest:
+    action: receive
+    channel:
+      $ref: '#/channels/createGameRequests'
+  approveCreateGameRequest:
+    action: send
+    channel:
+      $ref: '#/channels/createGameRequestsApproved'
+  rejectCreateGameRequests:
+    action: send
+    channel:
+      $ref: '#/channels/createGameRequestsRejected'
+  informNewGame:
+    action: send
+    channel:
+      $ref: '#/channels/newGameCreated'
+  receiveJoinGameRequest:
+    action: receive
+    channel:
+      $ref: '#/channels/game-{gameId}-JoinRequests'
+  approveJoinGameRequest:
+    action: send
+    channel:
+      $ref: '#/channels/game-{gameId}-JoinRequestsApproved'
+  rejectJoinGameRequest:
+    action: send
+    channel:
+      $ref: '#/channels/game-{gameId}-JoinRequestsRejected'
+  receiveMoveRequest:
+    action: receive
+    channel:
+      $ref: '#/channels/session-{playerSessionId}-MoveRequests'
+  approveMoveRequest:
+    action: send
+    channel:
+      $ref: '#/channels/session-{playerSessionId}-MoveRequestsApproved'
+  rejectMoveRequest:
+    action: send
+    channel:
+      $ref: '#/channels/session-{playerSessionId}-MoveRequestsRejected'
+  informNewGameState:
+    action: send
+    channel:
+      $ref: '#/channels/game-{gameId}-events'
+components:
+  messages:
+    createGameRequest:
+      name: createGameRequest
+      title: Request event for creating a new game
+      payload:
+        type: object
+        properties:
+          requestId:
+            type: string
+            description: Unique identifier of the request
+          gameId:
+            type: string
+            description: Unique game name
+        required:
+          - requestId
+          - gameId
+    createGameRequestApproved:
+      name: createGameRequestApproved
+      title: Creating a new game request approved event
+    createGameRequestRejected:
+      name: createGameRequestRejected
+      title: Creating a new game request rejected event
+    joinGameRequest:
+      name: joinGameRequest
+      title: Request to join a game
+    joinGameRequestApproved:
+      name: joinGameRequestApproved
+      title: Request to join a game approved event
+    joinGameRequestRejected:
+      name: joinGameRequestRejected
+      title: Request to join a game rejected event
+    newGame:
+      name: newGame
+      title: New games created
+    newMoveRequest:
+      name: newGameRequest
+      title: Request to make a move in a game by a specific player
+    newMoveRequestApproved:
+      name: newGameRequestApproved
+      title: Request to make a move in a game approved
+    newMoveRequestRejected:
+      name: newGameRequestRejected
+      title: Request to make a move in a game rejected
+    gameEvent:
+      name: gameEvent
+      title: Events about game state changes
+      

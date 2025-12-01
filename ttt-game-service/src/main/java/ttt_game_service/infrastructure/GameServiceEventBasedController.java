@@ -25,7 +25,7 @@ public class GameServiceEventBasedController extends VerticleBase  {
 	
 	static Logger logger = Logger.getLogger("[Game Service Event-Based Controller]");
 
-	/* event channels names */
+	/* static event channels names */
 	 
 	static final String CREATE_GAME_REQUESTS_EVC = "create-game-requests";
 	static final String CREATE_GAME_REQUESTS_APPROVED_EVC = "create-game-requests-approved";
@@ -33,39 +33,17 @@ public class GameServiceEventBasedController extends VerticleBase  {
 
 	static final String NEW_GAME_CREATED_EVC = "new-game-created";
 
-	static final String JOIN_GAME_REQUESTS_EVC = "join-game-requests";
-	static final String JOIN_GAME_REQUESTS_APPROVED_EVC = "join-game-requests-approved";
-	static final String JOIN_GAME_REQUESTS_REJECTED_EVC = "join-game-requests-rejected";
-
-	static final String NEW_MOVE_REQUESTS_EVC = "new-move-requests";
-	static final String MOVE_ACCEPTED_EVC = "move-accepted";
-	static final String MOVE_REJECTED_EVC = "move-rejected";
+	/* static event channels for create game requests, approvals, rejection */
 	
-	/* event channels for create game requests, approvals, rejection */
 	private InputEventChannel createGameRequests;
 	private OutputEventChannel createGameRequestsApproved, createGameRequestsRejected;
-
-	/* event channel about games created */
+	
+	/* static event channel about games created */
+	
 	private OutputEventChannel newGameCreated;
-	
-	/* event channel for join game requests, approvals, rejections */
-	private InputEventChannel joinGameRequests;
-	private OutputEventChannel joinGameRequestsApproved, joinGameRequestsRejected;
-
-	/* event channel for new move requests, approvals, rejections */	
-	private InputEventChannel newMoveRequests;
-	private OutputEventChannel moveAccepted, moveRejected;
-
-	/* 
-	 * besides this "static" channels, a dynamic event channel
-	 * is created for each new game, with  name:
-	 * 
-	 *   "game-"<gameId>"-events"
-	 *   
-	 * including all events occurring to that game.   	
-	 */
-	
+		
 	/* Ref. to the application layer */
+	
 	private GameService gameService;
 	
 	public GameServiceEventBasedController(GameService service, String evChannelsLocation) {
@@ -80,7 +58,7 @@ public class GameServiceEventBasedController extends VerticleBase  {
 		
 		var prom = Promise.promise();
 
-		/* creating event channels */
+		/* creating static event channels */
 		
 		createGameRequests = new InputEventChannel(vertx, CREATE_GAME_REQUESTS_EVC, evChannelsLocation);		
 		createGameRequestsApproved = new OutputEventChannel(vertx, CREATE_GAME_REQUESTS_APPROVED_EVC, evChannelsLocation);
@@ -88,25 +66,15 @@ public class GameServiceEventBasedController extends VerticleBase  {
 		
 		newGameCreated = new OutputEventChannel(vertx, NEW_GAME_CREATED_EVC, evChannelsLocation);
 
-		joinGameRequests = new InputEventChannel(vertx, JOIN_GAME_REQUESTS_EVC, evChannelsLocation);
-		joinGameRequestsApproved = new OutputEventChannel(vertx, JOIN_GAME_REQUESTS_APPROVED_EVC, evChannelsLocation);
-		joinGameRequestsRejected = new OutputEventChannel(vertx, JOIN_GAME_REQUESTS_REJECTED_EVC, evChannelsLocation);
-
-		newMoveRequests = new InputEventChannel(vertx, NEW_MOVE_REQUESTS_EVC, evChannelsLocation);
-		moveAccepted = new OutputEventChannel(vertx, MOVE_ACCEPTED_EVC, evChannelsLocation);
-		moveRejected = new OutputEventChannel(vertx, MOVE_REJECTED_EVC, evChannelsLocation);
-				
-		/* configuring input channel with event handlers */
+		/* configuring input channels with event handlers */
 
 		createGameRequests.init(this::createNewGame);
-		joinGameRequests.init(this::joinGame);
-		newMoveRequests.init(this::newMove);
 		
 		return prom.future();
 	}
 
 
-	/* Event Handlers */
+	/* Static event Handlers */
 	
 
 	/**
@@ -138,12 +106,105 @@ public class GameServiceEventBasedController extends VerticleBase  {
 			createGameRequestsApproved.postEvent(evRequestOK)
 			.onSuccess(v -> {
 				logger.info("create game request approved");
+				
+				/* dynamically creating channels for joining the game */
+
+				var joinReqs = "game-" + gameId + "-join-requests";
+				var joinReqsAccepted = "game-" + gameId + "-join-requests-approved";
+				var joinReqsRejected = "game-" + gameId + "-join-requests-rejected";
+				
+				var joinGameRequests = new InputEventChannel(vertx, joinReqs, evChannelsLocation);
+
+				var joinGameRequestsApproved = new OutputEventChannel(vertx, joinReqsAccepted, evChannelsLocation);
+				var joinGameRequestsRejected = new OutputEventChannel(vertx, joinReqsRejected, evChannelsLocation);
+				
+				/* dynamically initializing join input channels with the handler */
+				
+				joinGameRequests.init(joinGameEv -> {
+					logger.log(Level.INFO, "JoinGame request");
+					var requestId2 = joinGameEv.getString("requestId");
+					var userId = joinGameEv.getString("userId");
+					var symbol = joinGameEv.getString("symbol");
+
+					try {
+						var playerSession = gameService.joinGame(new UserId(userId), 
+								gameId, symbol.equals("X") ? TTTSymbol.X : TTTSymbol.O);
+						
+						var evRequestOK2 = new JsonObject();
+						evRequestOK.put("requestId", requestId2);
+						evRequestOK.put("gameId", gameId);
+						evRequestOK.put("playerSessionId", playerSession.getId());
+						joinGameRequestsApproved.postEvent(evRequestOK2)
+						.onSuccess(v1 -> {
+							logger.info("join game request approved");
+							
+							/* creating dynamically channels for specific players handling move events */
+							
+							var moveReqs = "session-" + playerSession.getId() + "-move-requests";
+							var moveReqsAccepted = "session-" + playerSession.getId() + "-move-accepted";
+							var moveReqsRejected = "session-" + playerSession.getId() + "-move-rejected";
+							var newMoveRequests = new InputEventChannel(vertx, moveReqs, evChannelsLocation);
+							var moveAccepted = new OutputEventChannel(vertx, moveReqsAccepted, evChannelsLocation);
+							var moveRejected = new OutputEventChannel(vertx, moveReqsRejected, evChannelsLocation);
+							
+							/* dynamically initializing new move request input channels with the handler */
+							
+							newMoveRequests.init((JsonObject newMoveEv) -> {
+								logger.log(Level.INFO, "NewMove");
+								var requestId3 = newMoveEv.getString("requestId");
+								int x = Integer.parseInt(newMoveEv.getString("x"));
+								int y = Integer.parseInt(newMoveEv.getString("y"));
+								try {
+									var ps = gameService.getPlayerSession(playerSession.getId());
+									ps.makeMove(x, y);				
+
+									var evMoveAccepted = new JsonObject();
+									evMoveAccepted.put("requestId", requestId3);
+									moveAccepted.postEvent(evMoveAccepted)
+									.onSuccess(v3 -> {
+										logger.info("new move approved");
+									})
+									.onFailure(v3 -> {
+										logger.info("new move approved but event generation failed");
+									});
+								} catch (InvalidMoveException ex) {
+									var evMoveRejected = new JsonObject();
+									evMoveRejected.put("requestId", requestId);
+									moveRejected.postEvent(evMoveRejected)
+									.onSuccess(v3 -> {
+										logger.info("new move rejected");
+									})
+									.onFailure(v3 -> {
+										logger.info("new move rejected and event generation failed");
+									});
+								}
+							});
+							
+						})
+						.onFailure(v1 -> {
+							logger.info("join game request approved but event generation failed");
+						});
+										
+					} catch (InvalidJoinException  ex) {
+						var evRequestRejected = new JsonObject();
+						evRequestRejected.put("requestId", requestId);
+						evRequestRejected.put("gameId", gameId);
+						evRequestRejected.put("reason", ex.getMessage());
+						joinGameRequestsRejected.postEvent(evRequestRejected)
+						.onSuccess(v1 -> {
+							logger.info("join game failed");
+						})
+						.onFailure(v1 -> {
+							logger.info("join game failed and event generation failed");
+						});
+					}						
+				});
+				
+				
 			})
 			.onFailure(v -> {
 				logger.info("create game request approved but event generation failed");
 			});
-			
-			// gameStateUpdates = new OutputEventChannel(vertx, GAME_STATE_UPDATES_EVC, chAddress);
 
 		} catch (GameAlreadyPresentException ex) {
 			var evRequestRejected = new JsonObject();
@@ -163,91 +224,7 @@ public class GameServiceEventBasedController extends VerticleBase  {
 
 	/**
 	 * 
-	 * Join a Game - by user logged in (with a UserSession)
-	 * 
-	 * It creates a PlayerSession
-	 * 
-	 * @param context
-	 */
-	protected void joinGame(JsonObject joinGameEv) {
-		logger.log(Level.INFO, "JoinGame request");
-		var requestId = joinGameEv.getString("requestId");
-		var gameId = joinGameEv.getString("gameId");
-		var userId = joinGameEv.getString("userId");
-		var symbol = joinGameEv.getString("symbol");
-
-		try {
-			var playerSession = gameService.joinGame(new UserId(userId), 
-					gameId, symbol.equals("X") ? TTTSymbol.X : TTTSymbol.O);
-			
-			var evRequestOK = new JsonObject();
-			evRequestOK.put("requestId", requestId);
-			evRequestOK.put("gameId", gameId);
-			evRequestOK.put("playerSessionId", playerSession.getId());
-			joinGameRequestsApproved.postEvent(evRequestOK)
-			.onSuccess(v -> {
-				logger.info("join game request approved");
-			})
-			.onFailure(v -> {
-				logger.info("join game request approved but event generation failed");
-			});
-							
-		} catch (InvalidJoinException  ex) {
-			var evRequestRejected = new JsonObject();
-			evRequestRejected.put("requestId", requestId);
-			evRequestRejected.put("gameId", gameId);
-			evRequestRejected.put("reason", ex.getMessage());
-			joinGameRequestsRejected.postEvent(evRequestRejected)
-			.onSuccess(v -> {
-				logger.info("join game failed");
-			})
-			.onFailure(v -> {
-				logger.info("join game failed and event generation failed");
-			});
-		}
-	}	
-	
-	/**
-	 * 
-	 * Make a move in a game - by players playing a game (with a PlayerSession)
-	 * 
-	 * @param context
-	 */
-	protected void newMove(JsonObject newMoveEv) {
-		logger.log(Level.INFO, "NewMove");
-		var playerSessionId = newMoveEv.getString("playerSessionId");
-		var requestId = newMoveEv.getString("requestId");
-		int x = Integer.parseInt(newMoveEv.getString("x"));
-		int y = Integer.parseInt(newMoveEv.getString("y"));
-		try {
-			var ps = gameService.getPlayerSession(playerSessionId);
-			ps.makeMove(x, y);				
-
-			var evMoveAccepted = new JsonObject();
-			evMoveAccepted.put("requestId", requestId);
-			moveAccepted.postEvent(evMoveAccepted)
-			.onSuccess(v -> {
-				logger.info("new move approved");
-			})
-			.onFailure(v -> {
-				logger.info("new move approved but event generation failed");
-			});
-		} catch (InvalidMoveException ex) {
-			var evMoveRejected = new JsonObject();
-			evMoveRejected.put("requestId", requestId);
-			moveRejected.postEvent(evMoveRejected)
-			.onSuccess(v -> {
-				logger.info("new move rejected");
-			})
-			.onFailure(v -> {
-				logger.info("new move rejected and event generation failed");
-			});
-		}
-	}
-	
-	/**
-	 * 
-	 * Get game info
+	 * Get game info - TO BE IMPLEMENTED
 	 * 
 	 * @param context
 	 *//*

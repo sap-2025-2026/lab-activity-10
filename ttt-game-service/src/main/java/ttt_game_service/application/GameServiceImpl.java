@@ -62,16 +62,6 @@ public class GameServiceImpl implements GameService {
 		var obs = observerFactory.makeNewGameObserver(gameId);
 		game.addGameObserver(obs);
 		
-		/* for observability */
-
-		/*
-		for (var obs: observers) {
-			obs.notifyNewGameCreated(gameId);
-		}
-		
-		for (var obs: observers) {
-			game.addGameObserver(obs);
-		}*/		
 	}
 	
 	/**
@@ -106,7 +96,6 @@ public class GameServiceImpl implements GameService {
 		// ps.bindPlayerSessionEventNotifier(notifier);
 		playerSessionRepository.addSession(ps);
 		// game.addGameObserver(ps);
-		
 		
 		/* 
 		 * Once both players (sessions) are ready to observe

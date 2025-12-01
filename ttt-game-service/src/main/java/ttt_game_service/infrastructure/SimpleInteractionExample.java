@@ -12,19 +12,13 @@ public class SimpleInteractionExample {
 
 	static Logger logger = Logger.getLogger("[Example]");
 		
+	/* static channels about game creation */
+	
 	static final String CREATE_GAME_REQUESTS_EVC = "create-game-requests";
 	static final String CREATE_GAME_REQUESTS_APPROVED_EVC = "create-game-requests-approved";
 	static final String CREATE_GAME_REQUESTS_REJECTED_EVC = "create-game-requests-rejected";
 
 	static final String NEW_GAME_CREATED_EVC = "new-game-created";
-
-	static final String JOIN_GAME_REQUESTS_EVC = "join-game-requests";
-	static final String JOIN_GAME_REQUESTS_APPROVED_EVC = "join-game-requests-approved";
-	static final String JOIN_GAME_REQUESTS_REJECTED_EVC = "join-game-requests-rejected";
-
-	static final String NEW_MOVE_REQUESTS_EVC = "new-move-requests";
-	static final String MOVE_ACCEPTED_EVC = "move-accepted";
-	static final String MOVE_REJECTED_EVC = "move-rejected";
 	
 	public static void main(String[] args) throws Exception {
 		var vertx = Vertx.vertx();
@@ -79,11 +73,12 @@ public class SimpleInteractionExample {
 
 		/* join the game - user-1 */
 		
-		OutputEventChannel joinGameReq = new OutputEventChannel(vertx, JOIN_GAME_REQUESTS_EVC, location);
+		var evJoinChName = "game-supergame-join-requests";
+		
+		OutputEventChannel joinGameReq = new OutputEventChannel(vertx, evJoinChName, location);
 		
 		var joinGameReqEv = new JsonObject();
 		joinGameReqEv.put("requestId", 2);
-		joinGameReqEv.put("gameId", "supergame");		
 		joinGameReqEv.put("userId", "user-1");		
 		joinGameReqEv.put("symbol", "X");		
 		joinGameReq
@@ -97,7 +92,6 @@ public class SimpleInteractionExample {
 		
 		var joinGameReqEv2 = new JsonObject();
 		joinGameReqEv2.put("requestId", 3);
-		joinGameReqEv2.put("gameId", "supergame");		
 		joinGameReqEv2.put("userId", "user-2");		
 		joinGameReqEv2.put("symbol", "O");		
 		joinGameReq
@@ -108,7 +102,9 @@ public class SimpleInteractionExample {
 		
 		var myLatch = new CountDownLatch(2);
 		
-		InputEventChannel joinGameReqApproved = new InputEventChannel(vertx, JOIN_GAME_REQUESTS_APPROVED_EVC, location);
+		var evJoinApprovedChName = "game-supergame-join-requests-approved";
+
+		InputEventChannel joinGameReqApproved = new InputEventChannel(vertx, evJoinApprovedChName, location);
 		joinGameReqApproved.init((JsonObject ev) -> {			
 			logger.info("join game request approved - " + (ev.encodePrettily()));
 			myLatch.countDown();
@@ -120,28 +116,31 @@ public class SimpleInteractionExample {
 		
 		/* users move  */
 
-		OutputEventChannel newMoveReq = new OutputEventChannel(vertx, NEW_MOVE_REQUESTS_EVC, location);
+		var moveReqsUser1 = "session-player-session-1-move-requests";		
+		OutputEventChannel newMoveReq1 = new OutputEventChannel(vertx, moveReqsUser1, location);
 
 		var newMoveReqEv = new JsonObject();
 		newMoveReqEv.put("requestId", 4);
-		newMoveReqEv.put("playerSessionId", "player-session-1");		
 		newMoveReqEv.put("x", "1");		
 		newMoveReqEv.put("y", "1");		
-		newMoveReq
+		newMoveReq1
 		.postEvent(newMoveReqEv)
 		.onSuccess(v -> {
-			logger.info("new move for user-1 posted");
-		});
+			
+			logger.info("new move for user-1 posted, now go with the second");
+			
+			var moveReqsUser2 = "session-player-session-2-move-requests";		
+			OutputEventChannel newMoveReq2 = new OutputEventChannel(vertx, moveReqsUser2, location);
 
-		var newMoveReqEv2 = new JsonObject();
-		newMoveReqEv2.put("requestId", 5);
-		newMoveReqEv2.put("playerSessionId", "player-session-2");		
-		newMoveReqEv2.put("x", "0");		
-		newMoveReqEv2.put("y", "0");		
-		newMoveReq
-		.postEvent(newMoveReqEv2)
-		.onSuccess(v -> {
-			logger.info("new move for user-2 posted");
+			var newMoveReqEv2 = new JsonObject();
+			newMoveReqEv2.put("requestId", 5);
+			newMoveReqEv2.put("x", "0");		
+			newMoveReqEv2.put("y", "0");		
+			newMoveReq2
+			.postEvent(newMoveReqEv2)
+			.onSuccess(v2 -> {
+				logger.info("new move for user-2 posted");
+			});
 		});
 		
 		Thread.sleep(100000);

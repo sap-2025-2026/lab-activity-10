@@ -2,7 +2,7 @@
 
 ## Lab Activity #10 - 20251128 
 
-v1.0.0-20251128
+v1.1.0-20251130
 
 **Event-Driven Architectures and Microservices**
 - Event store technology example: [**Apache Kafka**](https://kafka.apache.org/) 
@@ -20,11 +20,33 @@ v1.0.0-20251128
   - Dashboard Tools for Kafka: [Offset Explorer](https://www.kafkatool.com/) (formerly Kafka Tool)
     - Using Offset Explorer GUI tool as a simple dashboard for Kafka
       - setting the  Bootstrap servers property to connect to the Kafka server to listen at port 9092 or 29092 (if using Docker) for the host machine
+- Documenting API in Event-Driven Architectures: [**AsyncAPI**](https://www.asyncapi.com/) initiative
+  - Kafka case
+    - [tutorial from AsyncAPI](https://www.asyncapi.com/docs/tutorials/kafka)
+    - [tutoria  from Kafka](https://www.confluent.io/de-de/events/kafka-summit-europe-2021/getting-started-with-asyncapi-how-to-describe-your-kafka-cluster/)
+    - [Terminology mapping](https://dalelane.co.uk/blog/?p=4219)
 - **TTT Game System case study**
   - Focus on `ttt-game-service` microservice: making it event-driven, using Kafka 
-    - designing event channels
+    - designing event channels - both static and dynamic, inspired by REST principles
+      - static event channels, functioning as a single entry point (à-la-REST)
+        - `create-game-requests` (input)
+        - `create-game-requests-approved` (output)
+        - `create-game-requests-rejected` (output)  
+        - `new-game-created` (output) 
+      - dynamic event channels
+        - to join a game identified by `<gameId>`
+          - `game-<gameId>-join-requests` (input)
+          - `game-<gameId>-join-requests-approved` (output)
+          - `game-<gameId>-join-requests-rejected` (output)
+        - to make a move by a player session identified by `<playerSessionId>`
+          - `session-<playerSessionId>-move-requests` (input)
+          - `session-<playerSessionId>-move-requests-approved` (output)
+          - `session-<playerSessionId>-move-requests-rejected` (output)
+        - about the events of game identified by `<gameId>`
+          - `game-<gameId>-events` (output)
     - adding an event-driven controller
     - [TODO] implementing event sourcing
+  - [TTT Game Service AsyncAPI spec](./ttt-game-service/doc/async-api-spec.yaml)
   - Creating new proxies in other services interacting with `ttt-game-service`
     - `ttt-lobby-service`
     - `ttt-api-gateway`
@@ -36,11 +58,7 @@ v1.0.0-20251128
     - full TTT Game System
       - setting up all services and broker with `docker compose up`
       - interacting with the API gateway as seen in previous labs
-- Documenting API in Event-Driven Architectures: [**AsyncAPI**](https://www.asyncapi.com/) initiative
-  - Kafka case
-    - [tutorial from AsyncAPI](https://www.asyncapi.com/docs/tutorials/kafka)
-    - [tutoria  from Kafka](https://www.confluent.io/de-de/events/kafka-summit-europe-2021/getting-started-with-asyncapi-how-to-describe-your-kafka-cluster/)
-    - [Terminology mapping](https://dalelane.co.uk/blog/?p=4219)
+  - TTT Game
 
 
        
